@@ -1,0 +1,164 @@
+sudo -i
+cd /usr/bin
+vim internsctl
+
+VERSION="v0.1.0"
+
+function show_help {
+    echo "Interns Control Tool (internsctl) - Version $VERSION"
+    echo "Usage: internsctl [options] <command>"
+    echo "Options:"
+    echo "  -h, --help       Show this help message"
+    echo "  --version        Show the version number"
+    echo
+    echo "Commands:"
+    echo "  cpu getinfo      Get CPU information"
+    echo "  memory getinfo   Get memory information"
+    echo "  user create      Create a new user"
+    echo "  user list        List all regular users"
+    echo "  user list --sudo-only   List users with sudo permissions"
+    echo "  file getinfo     Get information about a file"
+    echo "  file getinfo [options] <file-name>"
+    echo "    --size, -s             Print file size"
+    echo "    --permissions, -p      Print file permissions"
+    echo "    --owner, -o            Print file owner"
+    echo "    --last-modified, -m    Print last modified time"
+}
+
+function show_version {
+    echo "Interns Control Tool (internsctl) - Version $VERSION"
+}
+
+function get_cpu_info {
+    lscpu
+}
+
+function get_memory_info {
+    free
+}
+
+function create_user {
+    if [ $# -eq 2 ]; then
+        sudo useradd -m $2
+    else
+        echo "Error: Invalid number of arguments. Usage: internsctl user create <username>"
+        exit 1
+    fi
+}
+
+function list_users {
+    if [ "$1" == "--sudo-only" ]; then
+        getent passwd | cut -d: -f1,3,4 | awk -F: '$2 >= 1000 && $3 == 0 {print $1}'
+    else
+        getent passwd | cut -d: -f1
+    fi
+}
+
+function file_getinfo {
+    file_name="$2"
+    if [ -z "$file_name" ]; then
+        echo "Error: Missing file name. Usage: internsctl file getinfo <file-name>"
+        exit 1
+    fi
+
+    if [ ! -e "$file_name" ]; then
+        echo "Error: File '$file_name' does not exist."
+        exit 1
+    fi
+
+    size_option=$3
+    permissions_option=$4
+    owner_option=$5
+    last_modified_option=$6
+
+    file_info="File: $file_name"
+
+    if [ -n "$size_option" ]; then
+        file_info+="\nSize(B): $(stat -c %s $file_name)"
+    fi
+
+    if [ -n "$permissions_option" ]; then
+        file_info+="\nAccess: $(stat -c %A $file_name)"
+    fi
+
+    if [ -n "$owner_option" ]; then
+        file_info+="\nOwner: $(stat -c %U $file_name)"
+    fi
+
+    if [ -n "$last_modified_option" ]; then
+        file_info+="\nModify: $(stat -c %y $file_name)"
+    fi
+
+    echo -e "$file_info"
+}
+
+# Main script logic
+case "$1" in
+    -h|--help)
+        show_help
+        ;;
+    --version)
+        show_version
+        ;;
+    cpu)
+        case "$2" in
+            getinfo)
+                get_cpu_info
+                ;;
+            *)
+                echo "Error: Unknown CPU command. Use 'internsctl --help' for usage information."
+                exit 1
+                ;;
+        esac
+        ;;
+    memory)
+        case "$2" in
+            getinfo)
+                get_memory_info
+                ;;
+            *)
+                echo "Error: Unknown memory command. Use 'internsctl --help' for usage information."
+                exit 1
+                ;;
+        esac
+        ;;
+    user)
+        case "$2" in
+            create)
+                create_user "$@"
+                ;;
+            list)
+                list_users "$3"
+                ;;
+            *)
+                echo "Error: Unknown user command. Use 'internsctl --help' for usage information."
+                exit 1
+                ;;
+        esac
+        ;;
+    file)
+        case "$2" in
+            getinfo)
+                file_getinfo "$@"
+                ;;
+            *)
+                echo "Error: Unknown file command. Use 'internsctl --help' for usage information."
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo "Error: Unknown option. Use 'internsctl --help' for usage information."
+        exit 1
+        ;;
+esac
+
+chmod +x internsctl
+internsctl --help
+internsctl --version
+internsctl cpu getinfo
+internsctl memory getinfo
+internsctl file getinfo --size hello.txt
+internsctl file getinfo --permissions hello.txt
+internsctl file getinfo --owner hello.txt
+internsctl file getinfo --last-modified hello.txt
